@@ -1,0 +1,21 @@
+# Binarios compilados de Go
+reproductor
+reproductor.exe
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Archivos de configuración locales / IDEs
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+
+# Sistema Operativo
+.DS_Store
+Thumbs.db
