@@ -1,4 +1,4 @@
-# Binarios compilados de Go
+# Binarios y compilaciones locales
 reproductor
 reproductor.exe
 *.exe
@@ -6,6 +6,13 @@ reproductor.exe
 *.dll
 *.so
 *.dylib
+
+# Paquetes generados por la CLI de Fyne (fyne package)
+*.tar.gz
+*.deb
+*.rpm
+*.flatpak
+*.AppImage
 
 # Archivos de configuración locales / IDEs
 .idea/

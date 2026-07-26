@@ -1,0 +1,8 @@
+[Details]
+Name = "P3-MP3-Widget"
+ID = "P3_MP3_Widget"
+Version = "0.0.0"
+Build = 0
+
+[Migrations]
+fyneDo = true

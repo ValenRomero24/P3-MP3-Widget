@@ -76,22 +76,21 @@ func main() {
 	)
 
 	w.SetContent(content)
+	w.Show()
 
 	// Goroutine encargada de actualizar el progreso de tiempo de forma segura
 	go func() {
 		for {
 			time.Sleep(500 * time.Millisecond)
-			pos, tot := engine.GetProgress()
-			minP, secP := int(pos.Minutes()), int(pos.Seconds())%60
-			minT, secT := int(tot.Minutes()), int(tot.Seconds())%60
-			nuevoTexto := fmt.Sprintf("%02d:%02d / %02d:%02d", minP, secP, minT, secT)
-			
-			// ⚡ CORRECCIÓN ABSOLUTA: Despachamos la actualización al hilo principal de la UI
-			fyne.DoAndWait(func() {
+			pos, tot 	:= engine.GetProgress()
+			minP, secP	:= int(pos.Minutes()), int(pos.Seconds())%60
+			minT, secT	:= int(tot.Minutes()), int(tot.Seconds())%60
+			nuevoTexto	:= fmt.Sprintf("%02d:%02d / %02d:%02d", minP, secP, minT, secT)
+
+			fyne.Do(func(){
 				lblTime.SetText(nuevoTexto)
 			})
 		}
 	}()
-
-	w.ShowAndRun()
+	a.Run()
 }
