@@ -79,7 +79,7 @@ func main() {
 	// Descomentá la línea de abajo si querés forzar que no tenga bordes:
 	// w.SetMainMenu(nil)
 
-	lblTitle	:= widget.NewLabel("Reproduciendo: " + formatTrackTitle(currentTrack.Title))
+	lblTitle	:= widget.NewLabelWithStyle("Reproduciendo: " + formatTrackTitle(currentTrack.Title), fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
 	lblTime		:= widget.NewLabel("00:00 / 00:00")
 
 	slider 		:= widget.NewSlider(0, 100)

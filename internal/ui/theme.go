@@ -1,11 +1,22 @@
 package ui
 
 import (
+	_"embed"
 	"image/color"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/theme"
 )
+
+// Embeber fuentes desde assets
+//go:embed "assets/FOT-Skip Std B.otf"
+var mainFontData []byte
+
+//go:embed assets/BMSPA___.TTF
+var logoFontData []byte
+
+var ResourceMainFont = fyne.NewStaticResource("FOT-Skip Std B.otf", mainFontData)
+var ResourceLogoFont = fyne.NewStaticResource("BMSPA___", logoFontData)
 
 type P3Theme struct{}
 
@@ -37,7 +48,11 @@ func (m *P3Theme) Color(name fyne.ThemeColorName, variant fyne.ThemeVariant) col
 }
 
 func (m *P3Theme) Font(style fyne.TextStyle) fyne.Resource {
-	return theme.DefaultTheme().Font(style)
+	if style.Bold {
+		return ResourceLogoFont
+	}
+
+	return ResourceMainFont
 }
 
 func (m *P3Theme) Icon(name fyne.ThemeIconName) fyne.Resource {
