@@ -16,23 +16,22 @@ import (
 	"github.com/gopxl/beep/wav"
 )
 
-
 type BeepEngine struct {
-	mu			sync.Mutex
-	streamer 	beep.StreamSeekCloser
-	format		beep.Format
-	ctrl		*beep.Ctrl
-	volume		*effects.Volume
-	sampleRate	beep.SampleRate
+	mu         sync.Mutex
+	streamer   beep.StreamSeekCloser
+	format     beep.Format
+	ctrl       *beep.Ctrl
+	volume     *effects.Volume
+	sampleRate beep.SampleRate
 }
 
 func NewBeepEngine() *BeepEngine {
 	sr := beep.SampleRate(44100)
 	_ = speaker.Init(sr, sr.N(time.Second/10))
-	return &BeepEngine{sampleRate : sr}
+	return &BeepEngine{sampleRate: sr}
 }
 
-func (e * BeepEngine) Play(path string) error {
+func (e *BeepEngine) Play(path string) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
@@ -46,7 +45,7 @@ func (e * BeepEngine) Play(path string) error {
 	}
 
 	var streamer beep.StreamSeekCloser
-	var format	 beep.Format
+	var format beep.Format
 	ext := strings.ToLower(filepath.Ext(path))
 
 	switch ext {
@@ -66,27 +65,26 @@ func (e * BeepEngine) Play(path string) error {
 		return err
 	}
 
-	e.streamer	= streamer
-	e.format 	= format
+	e.streamer = streamer
+	e.format = format
 
-	resampled	:= beep.Resample(4, format.SampleRate, e.sampleRate, streamer)
-	
-	e.ctrl	= &beep.Ctrl{
-		Streamer:	resampled,
-		Paused:		false,
-	} 
+	resampled := beep.Resample(4, format.SampleRate, e.sampleRate, streamer)
+
+	e.ctrl = &beep.Ctrl{
+		Streamer: resampled,
+		Paused:   false,
+	}
 
 	e.volume = &effects.Volume{
-		Streamer: 	e.ctrl,
-		Base:		2,
-		Volume:		0,
+		Streamer: e.ctrl,
+		Base:     2,
+		Volume:   0,
 	}
 
 	speaker.Clear()
 	speaker.Play(e.volume)
 	return nil
 }
-
 
 func (e *BeepEngine) TogglePause() bool {
 	e.mu.Lock()
@@ -105,8 +103,10 @@ func (e *BeepEngine) Seek(offset time.Duration) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	if e.streamer == nil { return }
-	
+	if e.streamer == nil {
+		return
+	}
+
 	speaker.Lock()
 	newPos := e.streamer.Position() + e.format.SampleRate.N(offset)
 	if newPos < 0 {
@@ -131,4 +131,14 @@ func (e *BeepEngine) GetProgress() (time.Duration, time.Duration) {
 	tot := e.format.SampleRate.D(e.streamer.Len())
 
 	return pos, tot
+}
+
+func (e *BeepEngine) GetPosition() time.Duration {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	if e.streamer == nil || e.format.SampleRate == 0 {
+		return 0
+	}
+	return e.format.SampleRate.D(e.streamer.Position())
 }

@@ -51,13 +51,28 @@ func (m *PlaylistManager) Next() bool {
 	return false
 }
 
-func (m *PlaylistManager) Prev() {
-	if len(m.tracks) == 0 { return }
+func (m *PlaylistManager) Prev() bool{
+	if len(m.tracks) == 0 { 
+		return false
+	}
 	if m.currentIndex > 0 {
 		m.currentIndex--
 	} else {
 		m.currentIndex = len(m.tracks) - 1
 	}
+	return true
+}
+
+func (m *PlaylistManager) SelectIndex(index int) bool {
+	if index < 0 || index >= len(m.tracks) {
+		return false
+	} 
+	m.currentIndex = index
+	return true
+}
+
+func (m *PlaylistManager) GetTracks() []Track {
+	return m.tracks
 }
 
 func (m *PlaylistManager) ToggleShuffle() {

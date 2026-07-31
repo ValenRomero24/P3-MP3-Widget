@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
+	"regexp"
+	"strings"
 	"time"
 
 	// ⚡ TODOS LOS IMPORTS CORREGIDOS A V2
@@ -14,7 +17,36 @@ import (
 
 	"github.com/ValenRomero24/P3-MP3-Widget/internal/audio"
 	"github.com/ValenRomero24/P3-MP3-Widget/internal/domain"
+	"github.com/ValenRomero24/P3-MP3-Widget/internal/ui"
 )
+
+func formatTrackTitle(title string) string {
+	// 1. Quitar la extensión (.flac, .mp3, etc.)
+	newTitle := strings.TrimSuffix(title, filepath.Ext(title))
+
+	// 2. Eliminar corchetes/paréntesis y su contenido al final (ej: "[01_The_End]")
+	reBrackets := regexp.MustCompile(`\[.*?\]|\(.*?\)`)
+	newTitle = reBrackets.ReplaceAllString(newTitle, "")
+
+	// 3. Eliminar números iniciales y guiones bajos (ej: "01_" o "01 - ")
+	rePrefix := regexp.MustCompile(`^\d+[\s\._\-]+`)
+	newTitle = rePrefix.ReplaceAllString(newTitle, "")
+
+	// 4. Reemplazar guiones bajos restantes por espacios
+	newTitle = strings.ReplaceAll(newTitle, "_", " ")
+	newTitle = strings.ReplaceAll(newTitle, "-", " ")
+
+	// 5. Limpiar espacios sobrantes a los lados
+	newTitle = strings.TrimSpace(newTitle)
+
+	// 6. Truncar si es demasiado largo para que el widget mantenga su tamaño
+	if len(newTitle) > 35 {
+		newTitle = newTitle[:32] + "..."
+	}
+
+	return newTitle
+}
+
 
 func main() {
 	if len(os.Args) < 2 {
@@ -34,11 +66,12 @@ func main() {
 	_ = engine.Play(currentTrack.Path)
 
 	a := app.NewWithID("com.valenromero.p3widget")
+	a.Settings().SetTheme(&ui.P3Theme{})
 	w := a.NewWindow("Persona 3 MP3 Player")
 
 // --- CONFIGURACIÓN DEL WIDGET CORREGIDA ---
 	w.SetFixedSize(true)
-	w.Resize(fyne.NewSize(350, 150))
+	w.Resize(fyne.NewSize(300, 250))
 	
 	// Nota: Si Pop!_OS (GNOME) te sigue mostrando el borde superior, 
 	// Fyne nos permite sugerirle al sistema operativo que la ventana es de tipo "Splash" 
@@ -46,32 +79,110 @@ func main() {
 	// Descomentá la línea de abajo si querés forzar que no tenga bordes:
 	// w.SetMainMenu(nil)
 
-	lblTitle	:= widget.NewLabel("Reproduciendo: " + currentTrack.Title)
+	lblTitle	:= widget.NewLabel("Reproduciendo: " + formatTrackTitle(currentTrack.Title))
 	lblTime		:= widget.NewLabel("00:00 / 00:00")
+
+	slider 		:= widget.NewSlider(0, 100)
+	isDragging	:= false
+
+	slider.OnChanged = func(val float64){
+		isDragging = true
+	}  
+
+	slider.OnChangeEnded = func(val float64) {
+		_, tot := engine.GetProgress()
+		if tot > 0 {
+			target := time.Duration(val/100.0 * float64(tot))
+			pos, _ := engine.GetProgress()
+			dif := target - pos
+			engine.Seek(dif)
+		}
+		isDragging = false
+	}
+
+	playNextTrack := func() {
+		if manager.Next() {
+			t, _ := manager.CurrentTrack()
+			_ = engine.Play(t.Path)
+			lblTitle.SetText("Reproduciendo: " + formatTrackTitle(t.Title))
+		}
+	}
+
+	playPrevTrack := func(){
+		if manager.Prev(){
+			t, _ := manager.CurrentTrack()
+			_ = engine.Play(t.Path)
+			lblTitle.SetText("Reproduciendo: " + formatTrackTitle(t.Title))
+		}
+	}
 
 	btnPlayPause	:= widget.NewButton("Play/Pause", func(){
 		engine.TogglePause()
 	})
 
 	btnNext			:= widget.NewButton(">>", func() {
-		if manager.Next() {
-			t, _ := manager.CurrentTrack()
-			_ = engine.Play(t.Path)
-			lblTitle.SetText("Reproduciendo: " + t.Title)
-		}
+		playNextTrack()
 	})
 
-	btnSeekBack		:= widget.NewButton("-5s", func() {
+	btnPrevious			:= widget.NewButton("<<", func(){
+		playPrevTrack()
+	})
+
+	btnSeekBack 	:= widget.NewButton("-5s", func() {
 		engine.Seek(-5 * time.Second)
 	})
 	btnSeekForward	:= widget.NewButton("+5s", func() {
 		engine.Seek(5 * time.Second)
 	})
 
+	var popup *widget.PopUp
+	allTracks := manager.GetTracks()
+
+	trackList := widget.NewList(
+		func() int {
+			return len(allTracks)
+		},
+		func() fyne.CanvasObject {
+			return widget.NewLabel("Titulo de la canción")
+		},
+		func(id widget.ListItemID, item fyne.CanvasObject) {
+			item.(*widget.Label).SetText(formatTrackTitle(allTracks[id].Title))
+		},
+	)
+
+	trackList.OnSelected = func(id widget.ListItemID) {
+		if manager.SelectIndex(id) {
+			t, _ := manager.CurrentTrack()
+			_ = engine.Play(t.Path)
+			lblTitle.SetText("Reproduciendo: " + formatTrackTitle(t.Title))
+		}
+		if popup != nil {
+			popup.Hide()
+		}
+	}
+
+	btnPlaylist := widget.NewButton("📋 Lista", func(){
+		listContainer := container.NewScroll(trackList)
+		listContainer.SetMinSize(fyne.NewSize(300, 180))
+
+		popup = widget.NewModalPopUp(
+			container.NewVBox(
+				widget.NewLabelWithStyle("Canciones", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
+				listContainer,
+				widget.NewButton("Cerrar", func(){ popup.Hide() }),
+			),
+			w.Canvas(),
+		)
+		popup.Show()
+	})
+
+	controlsRow := container.NewHBox(btnPrevious, btnSeekBack, btnPlayPause, btnSeekForward, btnNext)
+
 	content := container.NewVBox(
 		lblTitle,
+		slider,
 		lblTime,
-		container.NewHBox(btnSeekBack, btnPlayPause, btnSeekForward, btnNext),
+		container.NewHBox(controlsRow, btnPlaylist),
 		widget.NewButton("Cerrar widget", func(){ a.Quit() }),
 	)
 
@@ -83,13 +194,28 @@ func main() {
 		for {
 			time.Sleep(500 * time.Millisecond)
 			pos, tot 	:= engine.GetProgress()
-			minP, secP	:= int(pos.Minutes()), int(pos.Seconds())%60
-			minT, secT	:= int(tot.Minutes()), int(tot.Seconds())%60
-			nuevoTexto	:= fmt.Sprintf("%02d:%02d / %02d:%02d", minP, secP, minT, secT)
+			if tot > 0 {
+				minP, secP	:= int(pos.Minutes()), int(pos.Seconds())%60
+				minT, secT	:= int(tot.Minutes()), int(tot.Seconds())%60
+				nuevoTexto	:= fmt.Sprintf("%02d:%02d / %02d:%02d", minP, secP, minT, secT)
 
-			fyne.Do(func(){
-				lblTime.SetText(nuevoTexto)
-			})
+				if pos >= tot-500*time.Millisecond && pos > 0 {
+					fyne.Do(func(){
+						playNextTrack()
+					})
+					continue
+				}
+
+				fyne.Do(func(){
+					lblTime.SetText(nuevoTexto)
+
+					if !isDragging {
+						porcentaje := (float64(pos) / float64(tot)) * 100
+						slider.Value = porcentaje
+						slider.Refresh()
+					}
+				})
+			}
 		}
 	}()
 	a.Run()
