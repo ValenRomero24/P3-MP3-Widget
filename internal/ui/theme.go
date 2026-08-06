@@ -26,7 +26,7 @@ func (m *P3Theme) Color(name fyne.ThemeColorName, variant fyne.ThemeVariant) col
 	switch name {
 	// Fondo principal de la ventana (Negro / Azul noche profundo)
 	case theme.ColorNameBackground:
-		return color.RGBA{R: 15, G: 14, B: 20, A: 255} // #0B0E14
+		return color.RGBA{R: 7, G: 9, B: 14, A: 255} // #07090E (Negro/Azul noche profundo)
 	// Fondos de contenedores modales
 	case theme.ColorNameOverlayBackground, theme.ColorNameMenuBackground:
 		return color.RGBA{R: 15, G: 22, B: 36, A: 255} // #0F1624
@@ -60,5 +60,13 @@ func (m *P3Theme) Icon(name fyne.ThemeIconName) fyne.Resource {
 }
 
 func (m *P3Theme) Size(name fyne.ThemeSizeName) float32 {
+	switch name {
+	case theme.SizeNamePadding: 
+		return 6
+	case theme.SizeNameInnerPadding:
+		return 4
+	case theme.SizeNameText:
+		return 14
+	}
 	return theme.DefaultTheme().Size(name)
 }

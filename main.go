@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"image/color"
 	"log"
 	"os"
 	"path/filepath"
@@ -9,10 +10,13 @@ import (
 	"strings"
 	"time"
 
-	// ⚡ TODOS LOS IMPORTS CORREGIDOS A V2
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/driver/desktop"
+	"fyne.io/fyne/v2/layout"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 
 	"github.com/ValenRomero24/P3-MP3-Widget/internal/audio"
@@ -21,32 +25,24 @@ import (
 )
 
 func formatTrackTitle(title string) string {
-	// 1. Quitar la extensión (.flac, .mp3, etc.)
 	newTitle := strings.TrimSuffix(title, filepath.Ext(title))
 
-	// 2. Eliminar corchetes/paréntesis y su contenido al final (ej: "[01_The_End]")
 	reBrackets := regexp.MustCompile(`\[.*?\]|\(.*?\)`)
 	newTitle = reBrackets.ReplaceAllString(newTitle, "")
 
-	// 3. Eliminar números iniciales y guiones bajos (ej: "01_" o "01 - ")
 	rePrefix := regexp.MustCompile(`^\d+[\s\._\-]+`)
 	newTitle = rePrefix.ReplaceAllString(newTitle, "")
 
-	// 4. Reemplazar guiones bajos restantes por espacios
 	newTitle = strings.ReplaceAll(newTitle, "_", " ")
 	newTitle = strings.ReplaceAll(newTitle, "-", " ")
-
-	// 5. Limpiar espacios sobrantes a los lados
 	newTitle = strings.TrimSpace(newTitle)
 
-	// 6. Truncar si es demasiado largo para que el widget mantenga su tamaño
 	if len(newTitle) > 35 {
 		newTitle = newTitle[:32] + "..."
 	}
 
 	return newTitle
 }
-
 
 func main() {
 	if len(os.Args) < 2 {
@@ -60,39 +56,38 @@ func main() {
 	}
 
 	manager := domain.NewPlaylistManager(tracks)
-	engine	:= audio.NewBeepEngine()
+	engine := audio.NewBeepEngine()
 
 	currentTrack, _ := manager.CurrentTrack()
 	_ = engine.Play(currentTrack.Path)
 
 	a := app.NewWithID("com.valenromero.p3widget")
 	a.Settings().SetTheme(&ui.P3Theme{})
-	w := a.NewWindow("Persona 3 MP3 Player")
 
-// --- CONFIGURACIÓN DEL WIDGET CORREGIDA ---
-	w.SetFixedSize(true)
-	w.Resize(fyne.NewSize(300, 250))
-	
-	// Nota: Si Pop!_OS (GNOME) te sigue mostrando el borde superior, 
-	// Fyne nos permite sugerirle al sistema operativo que la ventana es de tipo "Splash" 
-	// (ventanas de carga que no tienen bordes ni botones de cerrar nativos).
-	// Descomentá la línea de abajo si querés forzar que no tenga bordes:
-	// w.SetMainMenu(nil)
+	var w fyne.Window
+	if drv, ok := a.Driver().(desktop.Driver); ok {
+		w = drv.CreateSplashWindow()
+	} else {
+		w = a.NewWindow("Persona 3 MP3 Player")
+	}
 
-	lblTitle	:= widget.NewLabelWithStyle("Reproduciendo: " + formatTrackTitle(currentTrack.Title), fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
-	lblTime		:= widget.NewLabel("00:00 / 00:00")
+	w.SetFixedSize(false)
+	w.Resize(fyne.NewSize(450, 250))
 
-	slider 		:= widget.NewSlider(0, 100)
-	isDragging	:= false
+	lblTitle := widget.NewLabelWithStyle("Reproduciendo: "+formatTrackTitle(currentTrack.Title), fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+	lblTime := widget.NewLabel("00:00 / 00:00")
 
-	slider.OnChanged = func(val float64){
+	slider := widget.NewSlider(0, 100)
+	isDragging := false
+
+	slider.OnChanged = func(val float64) {
 		isDragging = true
-	}  
+	}
 
 	slider.OnChangeEnded = func(val float64) {
 		_, tot := engine.GetProgress()
 		if tot > 0 {
-			target := time.Duration(val/100.0 * float64(tot))
+			target := time.Duration(val / 100.0 * float64(tot))
 			pos, _ := engine.GetProgress()
 			dif := target - pos
 			engine.Seek(dif)
@@ -108,30 +103,30 @@ func main() {
 		}
 	}
 
-	playPrevTrack := func(){
-		if manager.Prev(){
+	playPrevTrack := func() {
+		if manager.Prev() {
 			t, _ := manager.CurrentTrack()
 			_ = engine.Play(t.Path)
 			lblTitle.SetText("Reproduciendo: " + formatTrackTitle(t.Title))
 		}
 	}
 
-	btnPlayPause	:= widget.NewButton("Play/Pause", func(){
+	btnPlayPause := widget.NewButtonWithIcon("", theme.MediaPlayIcon(), func() {
 		engine.TogglePause()
 	})
 
-	btnNext			:= widget.NewButton(">>", func() {
+	btnNext := widget.NewButtonWithIcon("", theme.MediaSkipNextIcon(), func() {
 		playNextTrack()
 	})
 
-	btnPrevious			:= widget.NewButton("<<", func(){
+	btnPrevious := widget.NewButtonWithIcon("", theme.MediaSkipPreviousIcon(), func() {
 		playPrevTrack()
 	})
 
-	btnSeekBack 	:= widget.NewButton("-5s", func() {
+	btnSeekBack := widget.NewButtonWithIcon("", theme.MediaFastRewindIcon(), func() {
 		engine.Seek(-5 * time.Second)
 	})
-	btnSeekForward	:= widget.NewButton("+5s", func() {
+	btnSeekForward := widget.NewButtonWithIcon("", theme.MediaFastForwardIcon(), func() {
 		engine.Seek(5 * time.Second)
 	})
 
@@ -161,7 +156,7 @@ func main() {
 		}
 	}
 
-	btnPlaylist := widget.NewButton("📋 Lista", func(){
+	btnPlaylist := widget.NewButtonWithIcon("Lista", theme.ListIcon(), func() {
 		listContainer := container.NewScroll(trackList)
 		listContainer.SetMinSize(fyne.NewSize(300, 180))
 
@@ -169,44 +164,57 @@ func main() {
 			container.NewVBox(
 				widget.NewLabelWithStyle("Canciones", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
 				listContainer,
-				widget.NewButton("Cerrar", func(){ popup.Hide() }),
+				widget.NewButton("Cerrar", func() { popup.Hide() }),
 			),
 			w.Canvas(),
 		)
 		popup.Show()
 	})
 
-	controlsRow := container.NewHBox(btnPrevious, btnSeekBack, btnPlayPause, btnSeekForward, btnNext)
+	controlsRow := container.NewHBox(
+		layout.NewSpacer(),
+		btnPrevious, btnSeekBack, btnPlayPause, btnSeekForward, btnNext,
+		layout.NewSpacer(),
+	)
 
-	content := container.NewVBox(
+	bg := canvas.NewRectangle(color.RGBA{R: 11, G: 14, B: 20, A: 255})
+	bg.CornerRadius = 20                                     
+	bg.StrokeColor = color.RGBA{R: 0, G: 163, B: 255, A: 255} 
+	bg.StrokeWidth = 2.0
+
+	innerContent := container.NewVBox(
 		lblTitle,
 		slider,
 		lblTime,
 		container.NewHBox(controlsRow, btnPlaylist),
-		widget.NewButton("Cerrar widget", func(){ a.Quit() }),
+		widget.NewButton("Cerrar widget", func() { a.Quit() }),
 	)
 
-	w.SetContent(content)
+	finalWidget := container.NewStack(
+		bg,
+		container.NewPadded(innerContent),
+	)
+
+	w.SetContent(finalWidget)
 	w.Show()
 
-	// Goroutine encargada de actualizar el progreso de tiempo de forma segura
 	go func() {
 		for {
 			time.Sleep(500 * time.Millisecond)
-			pos, tot 	:= engine.GetProgress()
+			pos, tot := engine.GetProgress()
 			if tot > 0 {
-				minP, secP	:= int(pos.Minutes()), int(pos.Seconds())%60
-				minT, secT	:= int(tot.Minutes()), int(tot.Seconds())%60
-				nuevoTexto	:= fmt.Sprintf("%02d:%02d / %02d:%02d", minP, secP, minT, secT)
+				minP, secP := int(pos.Minutes()), int(pos.Seconds())%60
+				minT, secT := int(tot.Minutes()), int(tot.Seconds())%60
+				nuevoTexto := fmt.Sprintf("%02d:%02d / %02d:%02d", minP, secP, minT, secT)
 
 				if pos >= tot-500*time.Millisecond && pos > 0 {
-					fyne.Do(func(){
+					fyne.Do(func() {
 						playNextTrack()
 					})
 					continue
 				}
 
-				fyne.Do(func(){
+				fyne.Do(func() {
 					lblTime.SetText(nuevoTexto)
 
 					if !isDragging {
@@ -218,5 +226,6 @@ func main() {
 			}
 		}
 	}()
+
 	a.Run()
 }
